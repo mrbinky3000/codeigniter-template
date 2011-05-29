@@ -315,6 +315,35 @@ class Template
 		return $this;
 	}
 
+	
+	/**
+	 * Utility method to append or prepend css style sheets to the header using
+	 * the link tag.
+	 * 
+	 * Created because I don't like writting HTML in controllers.  If I just
+	 * used append_metadata(), I'd have to write out the link tag in quotes in a
+	 * controller. Also, set_metadata() does have a link option. But you can't
+	 * set the rel and media attributes.
+	 * 
+	 * @param string $s_href The href of the css style sheet
+	 * @param string $s_media Default is 'all'.  The type of media to which this style sheet applies
+	 * @param integer $i_where 0 = prepend, 1 = append.
+	 * @author Matthew Toledo <matthew.toledo@g###l.com>
+	 * @return Template
+	 */
+	public function link_css($s_href,$s_media='all',$i_where=1)
+	{
+		$s = '<link type="text/css" media="'.$s_media.'" rel="stylesheet" href="'.$s_href.'" />';
+		if (1 == $i_where)
+		{
+			$this->append_metadata($s);
+		}
+		else
+		{
+			$this->prepend_metadata($s);
+		}
+		return $this;
+	}
 
 	/**
 	 * Set metadata for output later
