@@ -317,31 +317,55 @@ class Template
 
 	
 	/**
-	 * Utility method to append or prepend css style sheets to the header using
-	 * the link tag.
+	 * Append or prepend css style sheets to the header using the link tag or by
+	 * embedding raw css into the head between style tags.
 	 * 
 	 * Created because I don't like writting HTML in controllers.  If I just
 	 * used append_metadata(), I'd have to write out the link tag in quotes in a
 	 * controller. Also, set_metadata() does have a link option. But you can't
-	 * set the rel and media attributes.
+	 * set the rel, media, and charset attributes which some people like to do.
 	 * 
-	 * @param string $s_href The href of the css style sheet
-	 * @param string $s_media Default is 'all'.  The type of media to which this style sheet applies
-	 * @param integer $i_where 0 = prepend, 1 = append.
+	 * Creates either a link tag or a style tag.
+	 * 
+	 * @param string $s Either the href attribute of the style tag or string containing style rules
+	 * @param integer $i_mode 1 means $s is an href attribute in a link tag.  Otherwise $s is empdeded between style tags as raw css.
+	 * @param boolean $b_append True = append.  False = prepend
+	 * @param array $a_attributes An associative array where the key is a script tag attribute and the array element value is the attribute's value. 
 	 * @author Matthew Toledo <matthew.toledo@g###l.com>
 	 * @return Template
 	 */
-	public function link_css($s_href, $s_media='all', $i_where=1)
+	public function add_css($s, $i_mode = 1, $b_append = TRUE, $a_attributes = array())
 	{
-		$s = '<link type="text/css" media="'.$s_media.'" rel="stylesheet" href="'.$s_href.'" />';
-		if (1 == $i_where)
+		
+		$s_tag = '';
+		$a_bits = array();
+		$a_default_attributes = array( 
+			'media' => 'all',
+			'type' => 'text/css',
+		);
+		if (1 == $i_mode)
 		{
-			$this->append_metadata($s);
+			$a_default_attributes['href'] = $s;
+			$a_default_attributes['rel'] = 'stylesheet';
 		}
+		
+		// Combine the attributes. Prototype attributes win in a tie.
+		$a = array_merge($a_default_attributes,$a_attributes);
+		unset($a_default_attributes, $a_attributes);
+		
+		// $s as href attribute
+		if (1 == $i_mode)
+		{
+			$s_tag = $this->_tag('link', $a);
+		}
+		// embed $s as element content
 		else
 		{
-			$this->prepend_metadata($s);
+			$s_tag .= $this->_tag('style', $a, FALSE, "\n$s\n");
 		}
+		
+		$this->update_metadata($s_tag, $b_append);
+		
 		return $this;
 	}
 	
@@ -359,54 +383,99 @@ class Template
 	 * $a_attributes argument.
 	 * 
 	 * @param string $s Either the source URL or raw javascript in string form.
-	 * @param integer $i_mode 1 means $s is the a src attribute.  Otherwise $s is placed between the script tags as raw javascript.
-	 * @param integer $i_where 0 = prepend, 1 = append.
+	 * @param integer $i_mode 1 means $s is the a src attribute.  Otherwise $s is empdeded between the script tags as raw javascript.
+	 * @param boolean $b_append True = append.  False = prepend
 	 * @param array $a_attributes An associative array where the key is a script tag attribute and the array element value is the attribute's value. 
 	 * @author Matthew Toledo <matthew.toledo@g###l.com>
 	 * @return Template
 	 */
-	public function add_script($s, $i_mode = 1, $i_where = 1, $a_attributes = array())
+	public function add_script($s, $i_mode = 1, $b_append = TRUE, $a_attributes = array())
 	{
 		$s_tag = '';
 		$a_bits = array();
 		$a_default_attributes['type'] = 'text/javascript';
-		if (1 == $i_where)
+		if (1 == $i_mode)
 		{
 			$a_default_attributes['src'] = $s;
 		}
+		
+		// Combine the attributes. Prototype attributes win in a tie.
 		$a = array_merge($a_default_attributes,$a_attributes);
+		unset($a_default_attributes, $a_attributes);
 		
-		
-		foreach ($a as $s_name => $s_value)
-		{
-			$a_bits[] = "{$s_name}=\"{$s_value}\"";
-		}
-		$s_attributes = implode(' ',$a_bits);
-		
-		$s_tag = '<script ';
-		
-		// src
+		// $s as src attribute
 		if (1 == $i_mode)
 		{
-			$s_tag .= $s_attributes . '></script>';
+			$s_tag = $this->_tag('script', $a);
 		}
-		// embed
+		// embed $s as element content
 		else
 		{
-			$s_tag .= " $s_attributes>//<![CDATA[\n$s\n//]]></script>\n";
+			$s_tag .= $this->_tag('script', $a, FALSE, "\n//<![CDATA[\n$s\n//]]></script>\n");
 		}
 		
-		if (1 == $i_where)
-		{
-			$this->append_metadata($s_tag);
-		}
-		else
-		{
-			$this->prepend_metadata($s_tag);
-		}		
+		$this->update_metadata($s_tag, $b_append);
 		
 		return $this;
 		
+	}
+	
+	
+	/**
+	 * Lets you append or prepend using a single function and an optional argument.
+	 * 
+	 * @param string $s String to prepend or append to the metadata section
+	 * @param type $b_append  True = append. False = prepend
+	 * @author Matthew Toledo <matthew.toledo@g###l.com>
+	 * @return Template
+	 */
+	public function update_metadata($s,$b_append = TRUE)
+	{
+		if (TRUE == $b_append)
+		{
+			$this->append_metadata($s);
+		}
+		else
+		{
+			$this->prepend_metadata($s);
+		}
+		
+		return $this;
+		
+	}
+	
+	/**
+	 * Create an HTML tag and attributes
+	 * 
+	 * Originally created to DRY up add_script() and link_css() methods.
+	 * 
+	 * @param string $s_tag
+	 * @param array $a_attributes
+	 * @param boolean $b_empty
+	 * @return string 
+	 */
+	private function _tag($s_tag, $a_attributes, $b_empty=TRUE, $s_element_content='')
+	{
+		$a_bits = array();
+		
+		foreach ($a_attributes as $s_name => $s_value)
+		{
+			$a_bits[] = "{$s_name}=\"{$s_value}\"";
+		}
+		
+		$s_attributes = implode(' ',$a_bits);
+		$s = '<'.$s_tag . ' '. $s_attributes;
+		
+		if ($b_empty) 
+		{
+			$s .= ' />';
+		}
+		else 
+		{
+			$s .= '>' . $s_element_content . '</'.$s_tag.'>';
+		}
+		
+		return $s;
 	}
 
 	/**
