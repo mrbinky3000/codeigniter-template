@@ -331,7 +331,7 @@ class Template
 	 * @author Matthew Toledo <matthew.toledo@g###l.com>
 	 * @return Template
 	 */
-	public function link_css($s_href,$s_media='all',$i_where=1)
+	public function link_css($s_href, $s_media='all', $i_where=1)
 	{
 		$s = '<link type="text/css" media="'.$s_media.'" rel="stylesheet" href="'.$s_href.'" />';
 		if (1 == $i_where)
@@ -343,6 +343,70 @@ class Template
 			$this->prepend_metadata($s);
 		}
 		return $this;
+	}
+	
+	/**
+	 * Utility method to append or prepend script tags in the head section.
+	 * 
+	 * Created because append_metadata() was the only other option and it
+	 * required coding HTML in quotes, which I don't like to do.
+	 * 
+	 * The default type attribute is "text/javascript"
+	 * The default src attribute is $s only when $i_mode equals 1, otherwise the 
+	 * src is not defined.
+	 * 
+	 * The default attributes can be overwritten by including them in the 
+	 * $a_attributes argument.
+	 * 
+	 * @param string $s Either the source URL or raw javascript in string form.
+	 * @param integer $i_mode 1 means $s is the a src attribute.  Otherwise $s is placed between the script tags as raw javascript.
+	 * @param integer $i_where 0 = prepend, 1 = append.
+	 * @param array $a_attributes An associative array where the key is a script tag attribute and the array element value is the attribute's value. 
+	 * @author Matthew Toledo <matthew.toledo@g###l.com>
+	 * @return Template
+	 */
+	public function add_script($s, $i_mode = 1, $i_where = 1, $a_attributes = array())
+	{
+		$s_tag = '';
+		$a_bits = array();
+		$a_default_attributes['type'] = 'text/javascript';
+		if (1 == $i_where)
+		{
+			$a_default_attributes['src'] = $s;
+		}
+		$a = array_merge($a_default_attributes,$a_attributes);
+		
+		
+		foreach ($a as $s_name => $s_value)
+		{
+			$a_bits[] = "{$s_name}=\"{$s_value}\"";
+		}
+		$s_attributes = implode(' ',$a_bits);
+		
+		$s_tag = '<script ';
+		
+		// src
+		if (1 == $i_mode)
+		{
+			$s_tag .= $s_attributes . '></script>';
+		}
+		// embed
+		else
+		{
+			$s_tag .= " $s_attributes>//<![CDATA[\n$s\n//]]></script>\n";
+		}
+		
+		if (1 == $i_where)
+		{
+			$this->append_metadata($s_tag);
+		}
+		else
+		{
+			$this->prepend_metadata($s_tag);
+		}		
+		
+		return $this;
+		
 	}
 
 	/**
